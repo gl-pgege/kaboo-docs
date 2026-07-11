@@ -1,0 +1,35 @@
+site_name: kaboo
+site_description: The kaboo stack — YAML multi-agent orchestration, CopilotKit runtime persistence, and a React agent-activity UI.
+site_url: https://gl-pgege.github.io/kaboo-docs/
+repo_url: https://github.com/gl-pgege/kaboo-docs
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.tabs
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: index.md
+  - Contributing to the kaboo stack: contributing.md
