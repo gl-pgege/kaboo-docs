@@ -1,0 +1,68 @@
+# Nested delegation scenario — 2 levels deep.
+#
+#   research_pipeline (delegate, entry = coordinator)
+#     └─ delegates to research_team (delegate, entry = researcher)
+#          └─ delegates to fact_checker (plain agent)
+#
+# So the UI should show a card nested two levels: coordinator → research_team
+# → fact_checker. Each ScriptedModel delegates on a fixed path, so the nesting
+# is identical on every run.
+#
+# Run:  uv run kaboo-serve config.nested.yaml --host 0.0.0.0 --port 8080
+
+x-scripted: &scripted ./models/scripted_model.py:ScriptedModel
+
+agents:
+  coordinator:
+    stream:
+      title: "Coordinating research"
+    model:
+      provider: *scripted
+      model_id: scripted
+      params:
+        script:
+          - tool: research_team
+            input: "Research the AI infrastructure market and verify the findings."
+        final_text: "Final report: verified findings on the AI infrastructure market delivered."
+    system_prompt: "You coordinate; delegate to the research team."
+
+  researcher:
+    stream:
+      title: "Gathering market data"
+    model:
+      provider: *scripted
+      model_id: scripted
+      params:
+        script:
+          - tool: fact_checker
+            input: "Verify: GPU cloud reaches $85B by 2028; vector-DB market up 85% YoY."
+        final_text: "Findings gathered and passed to fact-checking; results verified."
+    system_prompt: "You gather data, then delegate verification to the fact checker."
+
+  fact_checker:
+    stream:
+      title: "Verifying facts"
+    model:
+      provider: *scripted
+      model_id: scripted
+      params:
+        final_text: "Verified: both figures match the source database within tolerance."
+    system_prompt: "You verify claims against the database."
+
+orchestrations:
+  research_team:
+    mode: delegate
+    entry_name: researcher
+    connections:
+      - agent: fact_checker
+        description: "Verify research findings against the database"
+
+  research_pipeline:
+    mode: delegate
+    entry_name: coordinator
+    connections:
+      - agent: research_team
+        description: "Research team: gather market data and verify it"
+
+entry: research_pipeline
+log_level: INFO

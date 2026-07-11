@@ -1,0 +1,63 @@
+# TEST 9 — Parallel gated tools at the TOP LEVEL (no delegate).
+#
+#   research_pipeline (a PLAIN agent — the entry, no orchestration)
+#     └─ calls TWO gated tools in ONE parallel step
+#
+# Diagnostic for the parallel-gate wedge. Test 8 used a delegate, so both gates'
+# interrupts collapsed onto the SAME outer delegate tool-call id. Here the gated
+# agent IS the entry, so each parallel gate keeps its OWN distinct tool-call id
+# (search_web vs fetch_pricing). This isolates whether the wedge is caused by the
+# delegate re-keying (expected: two distinct cards render + resolve fine here) or
+# a fundamental one-at-a-time limit in the interrupt UI (would wedge here too).
+#
+# Run: uv run kaboo-serve config.test9_parallel_toplevel.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+      research_fetch_pricing: "Fetching pricing signals"
+
+agents:
+  research_pipeline:
+    model: default
+    stream:
+      title: "Analyst"
+    mcp: [research]
+    interrupt:
+      tools: [research_search_web, research_fetch_pricing]
+    system_prompt: |
+      You are a market analyst. Speed matters, so gather data in PARALLEL.
+
+      In your VERY FIRST step you MUST call BOTH tools AT THE SAME TIME, in a
+      single response (parallel tool use):
+        - `research_search_web` with a query for the user's segment, AND
+        - `research_fetch_pricing` for the same segment.
+      Do NOT call one, wait for its result, then call the other — emit both
+      tool calls together in the same step.
+
+      Both calls require the user's approval. If a call is REJECTED (you receive
+      "User rejected this action."), do NOT retry it and do NOT invent its data.
+      Then write a concise market summary using whatever was approved, and state
+      up front which data source (if any) was declined.
+
+entry: research_pipeline
+log_level: DEBUG

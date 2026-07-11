@@ -11,7 +11,7 @@ this page is the shared entry point that links them all.
 | [kaboo-workflows](https://github.com/gl-pgege/kaboo-workflows) | Python YAML multi-agent orchestration → AG-UI SSE | [CONTRIBUTING](https://github.com/gl-pgege/kaboo-workflows/blob/main/CONTRIBUTING.md) | [AGENTS](https://github.com/gl-pgege/kaboo-workflows/blob/main/AGENTS.md) |
 | [kaboo-runtime](https://github.com/gl-pgege/kaboo-runtime) | CopilotKit runtime persistence (AgentRunner + ThreadStore) | [CONTRIBUTING](https://github.com/gl-pgege/kaboo-runtime/blob/main/CONTRIBUTING.md) | [AGENTS](https://github.com/gl-pgege/kaboo-runtime/blob/main/AGENTS.md) |
 | [kaboo-react](https://github.com/gl-pgege/kaboo-react) | React agent-activity UI | [CONTRIBUTING](https://github.com/gl-pgege/kaboo-react/blob/main/CONTRIBUTING.md) | [AGENTS](https://github.com/gl-pgege/kaboo-react/blob/main/AGENTS.md) |
-| [kaboo-workflows-demo](https://github.com/gl-pgege/kaboo-workflows-demo) | Runnable end-to-end demo | [CONTRIBUTING](https://github.com/gl-pgege/kaboo-workflows-demo/blob/main/CONTRIBUTING.md) | [AGENTS](https://github.com/gl-pgege/kaboo-workflows-demo/blob/main/AGENTS.md) |
+| [kaboo-workflows-demo](https://github.com/gl-pgege/kaboo-docs/tree/main/examples/kaboo-workflows-demo) | Runnable end-to-end demo | [CONTRIBUTING](https://github.com/gl-pgege/kaboo-docs/blob/main/examples/kaboo-workflows-demo/CONTRIBUTING.md) | [AGENTS](https://github.com/gl-pgege/kaboo-docs/blob/main/examples/kaboo-workflows-demo/AGENTS.md) |
 | [kaboo-docs](https://github.com/gl-pgege/kaboo-docs) | This umbrella landing | [CONTRIBUTING](https://github.com/gl-pgege/kaboo-docs/blob/main/CONTRIBUTING.md) | [AGENTS](https://github.com/gl-pgege/kaboo-docs/blob/main/AGENTS.md) |
 
 ## Shared principles
@@ -31,7 +31,7 @@ this page is the shared entry point that links them all.
 
 - A library's behavior, API, or its own docs → that library's repo.
 - How the pieces run together, ports, env, startup → the
-  [demo](https://github.com/gl-pgege/kaboo-workflows-demo).
+  [demo](https://github.com/gl-pgege/kaboo-docs/tree/main/examples/kaboo-workflows-demo).
 - This landing (stack intro, library cards, this page) → `kaboo-docs`.
 
 ## Editing this site

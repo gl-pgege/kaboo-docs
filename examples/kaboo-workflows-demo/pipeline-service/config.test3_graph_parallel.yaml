@@ -1,0 +1,109 @@
+# TEST 3 — GRAPH with a parallel batch, swarm-in-graph nesting, structured
+# output, and a gated tool (real LLM).
+#
+#   research_pipeline (graph, entry = strategist)
+#     strategist ──▶ research_swarm (swarm: planner → writer) ─┐
+#               └──▶ analyst (structured MarketReport + gated web search) ─┴─▶ editor
+#
+# strategist fans out to a PARALLEL batch: a nested SWARM and an analyst that
+# emits a structured MarketReport (rendered as a structured card) after a gated
+# web search. Both converge on editor, the chat_output.
+#
+# Run: uv run kaboo-serve config.test3_graph_parallel.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+
+agents:
+  strategist:
+    model: default
+    stream:
+      title: "Setting strategy"
+    system_prompt: |
+      You set the research strategy in one short sentence naming a market segment
+      to investigate (e.g. "Cloud GPUs"). Keep it brief; downstream nodes do the work.
+
+  planner:
+    model: default
+    description: "Plans the swarm's research, then hands off to the writer."
+    stream:
+      title: "Planning (swarm)"
+    system_prompt: |
+      You plan the research angle in one sentence, then IMMEDIATELY hand off to
+      `writer` using the handoff tool.
+
+  writer:
+    model: default
+    description: "Writes the swarm's qualitative summary."
+    stream:
+      title: "Writing (swarm)"
+    system_prompt: |
+      You write a short qualitative summary (3 bullets) of the segment's trends.
+
+  analyst:
+    model: default
+    stream:
+      title: "Structured analysis"
+    mcp: [research]
+    interrupt:
+      tools: [research_search_web]
+    output_schema: ./schemas.py:MarketReport
+    system_prompt: |
+      You are a market analyst. FIRST call `research_search_web` for the segment
+      the strategist named (the search needs the user's approval — this is
+      expected). THEN produce a MarketReport based ONLY on what the search
+      returned: fill segment, key_findings, top_players, and outlook. Never
+      fabricate data.
+
+  editor:
+    model: default
+    stream:
+      title: "Editing final report"
+    system_prompt: |
+      You are the editor. Combine the swarm's qualitative summary and the analyst's
+      structured findings into one clear, well-structured final report with a
+      heading, key points, and a short outlook. This is the final chat reply.
+
+orchestrations:
+  research_swarm:
+    mode: swarm
+    agents: [planner, writer]
+    entry_name: planner
+    max_handoffs: 8
+
+  research_pipeline:
+    mode: graph
+    entry_name: strategist
+    chat_output: editor
+    edges:
+      - from: strategist
+        to: research_swarm
+      - from: strategist
+        to: analyst
+      - from: research_swarm
+        to: editor
+      - from: analyst
+        to: editor
+
+entry: research_pipeline
+log_level: DEBUG

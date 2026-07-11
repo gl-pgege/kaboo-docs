@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  sector      String
+  founded     Int
+  hq          String
+  employees   Int
+  description String
+  website     String
+  products    Product[]
+  segments    CompanySegment[]
+
+  @@map("companies")
+}
+
+model Product {
+  id          Int       @id @default(autoincrement())
+  companyId   Int
+  name        String
+  category    String
+  launchDate  DateTime
+  description String
+  features    Json
+  company     Company   @relation(fields: [companyId], references: [id])
+  pricing     Pricing[]
+  reviews     Review[]
+
+  @@map("products")
+}
+
+model Pricing {
+  id           Int     @id @default(autoincrement())
+  productId    Int
+  tier         String
+  monthlyPrice Float
+  annualPrice  Float
+  currency     String  @default("USD")
+  features     Json
+  product      Product @relation(fields: [productId], references: [id])
+
+  @@map("pricing")
+}
+
+model MarketSegment {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  description     String
+  totalMarketSize Float
+  growthRate       Float
+  companies       CompanySegment[]
+
+  @@map("market_segments")
+}
+
+model CompanySegment {
+  companyId   Int
+  segmentId   Int
+  marketShare Float
+  year        Int
+  company     Company       @relation(fields: [companyId], references: [id])
+  segment     MarketSegment @relation(fields: [segmentId], references: [id])
+
+  @@id([companyId, segmentId, year])
+  @@map("company_segments")
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  source    String
+  rating    Float
+  summary   String
+  pros      String
+  cons      String
+  date      DateTime
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@map("reviews")
+}

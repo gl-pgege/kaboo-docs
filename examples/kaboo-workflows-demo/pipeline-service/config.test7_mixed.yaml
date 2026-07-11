@@ -1,0 +1,84 @@
+# TEST 7 — Mixed approve+reject + structured degrade (real LLM).
+#
+#   research_pipeline (delegate, entry = coordinator)
+#     └─ delegates to analyst (structured MarketReport, TWO gated tools)
+#
+# The analyst calls TWO gated tools in one turn: `research_search_web` and
+# `research_fetch_pricing`. You APPROVE one and REJECT the other. Verifies:
+#   - two interrupts in a single turn resolve with MIXED statuses correctly
+#     (one approved -> runs; one rejected -> "User rejected this action.")
+#   - the rejected tool renders as a cancelled row, in order
+#   - the agent STILL returns a valid structured MarketReport, degrading
+#     gracefully (outlook/findings note the missing source) rather than failing
+#
+# Also used to exercise page RELOAD (mid-interrupt) and ABORT (stop mid-run).
+#
+# Run: uv run kaboo-serve config.test7_mixed.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+      research_fetch_pricing: "Fetching pricing signals"
+
+agents:
+  coordinator:
+    model: default
+    stream:
+      title: "Coordinating"
+    system_prompt: |
+      You are a coordinator. Immediately delegate the whole task to the
+      `analyst` by calling its tool. When it returns, give a one-sentence
+      closing summary that honestly notes if any data source was declined.
+
+  analyst:
+    model: default
+    stream:
+      title: "Analyst"
+    mcp: [research]
+    output_schema: ./schemas.py:MarketReport
+    interrupt:
+      tools: [research_search_web, research_fetch_pricing]
+    system_prompt: |
+      You are a market analyst. Follow this EXACT procedure — never skip a step:
+
+      1. Call `research_search_web` with a query for the user's segment. This
+         needs approval.
+      2. Call `research_fetch_pricing` for the same segment. This also needs
+         approval.
+      3. Some approvals may be REJECTED (you receive "User rejected this
+         action."). Do NOT retry a rejected tool and do NOT invent its data.
+      4. ALWAYS return a valid MarketReport (segment, key_findings, top_players,
+         outlook). Use whatever approved tools returned. If a source was
+         rejected, still produce the report from what you have and make the
+         `outlook` explicitly note which data source was unavailable so the
+         report degrades gracefully rather than failing.
+
+orchestrations:
+  research_pipeline:
+    mode: delegate
+    entry_name: coordinator
+    connections:
+      - agent: analyst
+        description: "Analyses a market segment with gated data sources; returns a structured report"
+
+entry: research_pipeline
+log_level: DEBUG

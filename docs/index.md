@@ -49,9 +49,10 @@ New here? [**Start here**](start-here.md) to pick a path, or follow the
     [Docs](https://gl-pgege.github.io/kaboo-react/) · [Repo](https://github.com/gl-pgege/kaboo-react)
 
 - :material-flask: __kaboo-workflows-demo__ — a runnable, end-to-end
-  market-research demo wiring the three libraries together.
+  market-research demo wiring the three libraries together, shipped as an example
+  in this repo.
 
-    [Repo](https://github.com/gl-pgege/kaboo-workflows-demo)
+    [Example](https://github.com/gl-pgege/kaboo-docs/tree/main/examples/kaboo-workflows-demo)
 
 </div>
 
@@ -61,9 +62,11 @@ The fastest way to see the whole stack in action is the demo — a market-resear
 assistant with delegated sub-agents, human-in-the-loop approvals, and full replay
 across reloads.
 
-1. Clone [kaboo-workflows-demo](https://github.com/gl-pgege/kaboo-workflows-demo).
+1. Clone this repo and open the
+   [`examples/kaboo-workflows-demo`](https://github.com/gl-pgege/kaboo-docs/tree/main/examples/kaboo-workflows-demo)
+   directory.
 2. Follow the
-   [validated startup](https://github.com/gl-pgege/kaboo-workflows-demo#run-it-validated-startup):
+   [validated startup](https://github.com/gl-pgege/kaboo-docs/tree/main/examples/kaboo-workflows-demo#run-it-validated-startup):
    Postgres via Docker, then the pipeline (`:8080`), backend (`:4000`), and
    frontend (`:3000`).
 3. Open <http://localhost:3000> and ask it to research a market.

@@ -1,0 +1,85 @@
+# TEST 2 — First-class SWARM with HITL from a swarm member (real LLM).
+#
+#   research_pipeline (swarm: planner → researcher → writer)
+#     - planner    hands off to researcher
+#     - researcher asks the user (radio) AND runs a gated web search, then hands
+#                  off to writer
+#     - writer     is the chat_output (its text is the chat reply)
+#
+# Proves ask_user + tool-approval fire from a SWARM member (not the entry) and
+# render at the top level, and that swarm handoffs survive an interrupt/resume.
+#
+# Run: uv run kaboo-serve config.test2_swarm_hitl.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+
+agents:
+  planner:
+    model: default
+    description: "Plans the work, then hands off to the researcher."
+    stream:
+      title: "Planning"
+    system_prompt: |
+      You plan the research in one short sentence, then IMMEDIATELY hand off to
+      `researcher` using the handoff tool. Do not do the research yourself.
+
+  researcher:
+    model: default
+    description: "Asks the user, runs a gated web search, hands off to the writer."
+    stream:
+      title: "Researching"
+    mcp: [research]
+    interrupt:
+      tools: [research_search_web]
+      ask_user: true
+    system_prompt: |
+      You are the researcher. Follow this EXACT procedure:
+      1. FIRST call `ask_user` with `input_type: "radio"` to pick ONE segment,
+         options: ["Cloud GPUs", "LLM APIs", "Vector databases", "AI pricing"].
+         Wait for the answer.
+      2. THEN call `research_search_web` for that segment. The search needs the
+         user's approval — this is expected. If rejected, ask what to do instead.
+      3. THEN hand off to `writer` using the handoff tool, passing the findings.
+      Never fabricate results; use only what the search returned. Do NOT add your
+      own "Other" entry to options — the UI adds a free-text field automatically.
+
+  writer:
+    model: default
+    description: "Writes the final report from the researcher's findings."
+    stream:
+      title: "Writing report"
+    system_prompt: |
+      You are the writer. Turn the researcher's findings into a short, clear
+      market summary with a heading and 3-4 bullet points. This is the final reply.
+
+orchestrations:
+  research_pipeline:
+    mode: swarm
+    agents: [planner, researcher, writer]
+    entry_name: planner
+    chat_output: writer
+    max_handoffs: 10
+
+entry: research_pipeline
+log_level: DEBUG

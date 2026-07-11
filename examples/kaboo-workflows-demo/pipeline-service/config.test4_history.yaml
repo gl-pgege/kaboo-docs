@@ -1,0 +1,55 @@
+# TEST 4 — Multi-turn client-driven history + structured output (real LLM).
+#
+#   research_pipeline (delegate, entry = coordinator)
+#     └─ delegates to analyst (history: true, structured MarketReport)
+#
+# analyst has `history: true`, so its transcript round-trips through
+# state.kaboo_history across turns (CopilotKit re-sends the agent state). Ask
+# about one segment on turn 1, then a follow-up on turn 2 ("compare that to
+# <other segment>") — the analyst should remember turn 1 without you repeating it.
+# Each answer is a structured MarketReport card.
+#
+# Run: uv run kaboo-serve config.test4_history.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+agents:
+  coordinator:
+    model: default
+    stream:
+      title: "Coordinating"
+    system_prompt: |
+      You are a coordinator. Delegate every market-research question to the
+      `analyst` by calling its tool, passing the user's request verbatim. Relay the
+      analyst's report back in one short sentence.
+
+  analyst:
+    model: default
+    history: true
+    stream:
+      title: "Analyst (remembers)"
+    output_schema: ./schemas.py:MarketReport
+    system_prompt: |
+      You are a market analyst with MEMORY of this conversation. Use prior turns
+      to inform follow-ups (e.g. if asked to "compare that", compare to the segment
+      discussed earlier without asking the user to repeat it). For each request,
+      return a MarketReport: segment, key_findings, top_players, outlook. Base it on
+      your market knowledge; keep findings concise.
+
+orchestrations:
+  research_pipeline:
+    mode: delegate
+    entry_name: coordinator
+    connections:
+      - agent: analyst
+        description: "Analyses market segments and remembers the conversation"
+
+entry: research_pipeline
+log_level: DEBUG

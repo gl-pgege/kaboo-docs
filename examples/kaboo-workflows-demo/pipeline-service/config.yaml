@@ -1,0 +1,115 @@
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  db:
+    command: ["npx", "-y", "mcp-postgres@latest"]
+    transport_options:
+      env:
+        DATABASE_URL: ${DATABASE_URL}
+    tool_labels:
+      list_tables: "Listing database tables"
+      get_schema: "Reading table structure"
+      query_data: "Querying database"
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+
+agents:
+  coordinator:
+    model: default
+    stream:
+      title: "Coordinating research"
+    system_prompt: |
+      You are a market research coordinator. Route questions to specialist agents:
+      - research_team: for data gathering (database queries, web searches) and fact verification
+      - analyst: for comparing products, analyzing trends, computing insights
+      - writer: for synthesizing findings into structured reports
+      If the user attaches an image or document, pass it to the relevant agent.
+
+  researcher:
+    model: default
+    stream:
+      title: "Gathering market data"
+    mcp: [db, research]
+    interrupt:
+      tools: [query_data]
+      ask_user: true
+    system_prompt: |
+      You are a market data researcher with SQL expertise. You have access to
+      a Postgres database with market research data. Start by listing tables
+      and inspecting schemas to understand the data. Write SQL queries to
+      find companies, products, pricing, market segments, and reviews.
+      Use web search for recent news and analyst coverage.
+      Return raw findings with the data, not analysis.
+
+  fact_checker:
+    model: default
+    stream:
+      title: "Verifying facts"
+    mcp: [db]
+    system_prompt: |
+      You are a fact checker with SQL expertise. When given research findings,
+      verify the key claims by querying the database directly. Check that
+      company names, product counts, pricing figures, and other data points
+      match what is in the database. Return a brief verification report
+      listing each claim as verified or unverified with the evidence.
+
+  analyst:
+    model: default
+    stream:
+      title: "Analyzing market trends"
+    mcp: [db]
+    system_prompt: |
+      You are a market analyst with SQL expertise. You have access to
+      a Postgres database. Write SQL queries with JOINs, aggregations,
+      and comparisons to analyze products, identify pricing patterns,
+      assess market positioning, and surface competitive advantages.
+      Present quantitative findings.
+
+  writer:
+    model: default
+    stream:
+      title: "Writing research report"
+    system_prompt: |
+      You are a research report writer. Take analysis and findings,
+      then produce a clear, well-structured report with sections,
+      key takeaways, and a summary table when appropriate.
+
+log_level: DEBUG
+
+orchestrations:
+  research_team:
+    mode: delegate
+    entry_name: researcher
+    connections:
+      - agent: fact_checker
+        description: "Verify research findings against the database"
+
+  research_pipeline:
+    mode: delegate
+    entry_name: coordinator
+    connections:
+      - agent: research_team
+        description: "Research team: gather and verify market data"
+      - agent: analyst
+        description: "Analyze and compare products, pricing, and market trends"
+      - agent: writer
+        description: "Write a structured research report from findings"
+
+entry: research_pipeline

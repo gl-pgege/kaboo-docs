@@ -1,0 +1,77 @@
+# TEST 6 — Failure resilience (real LLM).
+#
+#   research_pipeline (delegate, entry = coordinator)
+#     └─ delegates to analyst (calls a tool that FAILS, then recovers)
+#
+# analyst first calls `research_fetch_report`, whose backend deterministically
+# raises (503). Strands surfaces the exception as an errored tool result rather
+# than crashing the run, so the agent can SEE the failure and adapt — here it
+# falls back to `research_search_web` and still produces an answer. Verifies:
+#   - the failed tool renders as an ERROR row (not "done"), in order
+#   - the turn does NOT wedge (no RUN_ERROR); the agent recovers and replies
+#   - a following turn still works
+#
+# Run: uv run kaboo-serve config.test6_error.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+      research_fetch_report: "Fetching analyst report"
+
+agents:
+  coordinator:
+    model: default
+    stream:
+      title: "Coordinating"
+    system_prompt: |
+      You are a coordinator. Immediately delegate the whole task to the
+      `analyst` by calling its tool. When it returns, give a one-sentence
+      closing summary that honestly notes if a data source failed.
+
+  analyst:
+    model: default
+    stream:
+      title: "Analyst"
+    mcp: [research]
+    system_prompt: |
+      You are a market analyst. Follow this EXACT procedure:
+
+      1. FIRST call `research_fetch_report` with any plausible report id for the
+         user's topic. This backend is currently DOWN and will error — that is
+         expected.
+      2. When it fails, DO NOT give up and DO NOT crash. Acknowledge the report
+         backend was unavailable, then call `research_search_web` to gather what
+         you can instead.
+      3. Produce a concise market summary from the search results, and note at
+         the top that the full report backend was unavailable so the answer is
+         based on web results only.
+
+orchestrations:
+  research_pipeline:
+    mode: delegate
+    entry_name: coordinator
+    connections:
+      - agent: analyst
+        description: "Analyses market segments; recovers if a data source fails"
+
+entry: research_pipeline
+log_level: DEBUG

@@ -1,0 +1,94 @@
+# Graph-with-nested-swarm scenario — mixed nesting (R1) + parallel batch (R2).
+#
+# A first-class graph entry whose first node fans out to a parallel batch: one
+# branch is itself a SWARM, the other a plain node; both feed the editor.
+#
+#   content_strategist ──▶ research_swarm (swarm: planner → writer) ─┐
+#                     └──▶ market_researcher ───────────────────────┴──▶ copy_editor
+#
+# Exercises the hierarchical stream-group builder (swarm-in-graph nesting, R1)
+# and concurrent node attribution (research_swarm + market_researcher run as a
+# parallel batch, R2). `chat_output: copy_editor` is the chat bubble.
+#
+# Run:  uv run kaboo-serve config.graph_swarm.yaml --host 0.0.0.0 --port 8080
+
+x-scripted: &scripted ./models/scripted_model.py:ScriptedModel
+
+agents:
+  content_strategist:
+    stream:
+      title: "Planning strategy"
+    model:
+      provider: *scripted
+      model_id: scripted
+      params:
+        final_text: "Strategy: research the AI infrastructure market, then edit."
+    system_prompt: "You plan content strategy."
+
+  planner:
+    description: "Plans the research, then hands off to the writer."
+    stream:
+      title: "Planning the research"
+    model:
+      provider: *scripted
+      model_id: scripted
+      params:
+        script:
+          - handoff: writer
+            message: "Plan ready. Please write up the AI infrastructure findings."
+    system_prompt: "You plan work, then hand off to writer."
+
+  writer:
+    description: "Writes the swarm's research summary."
+    stream:
+      title: "Writing research summary"
+    model:
+      provider: *scripted
+      model_id: scripted
+      params:
+        final_text: "Research summary: GPU cloud, LLM APIs, and vector DBs are all growing fast."
+    system_prompt: "You write the research summary."
+
+  market_researcher:
+    stream:
+      title: "Gathering data points"
+    model:
+      provider: *scripted
+      model_id: scripted
+      params:
+        final_text: "Data points: GPU cloud $85B by 2028; vector-DB market +85% YoY."
+    system_prompt: "You gather supporting data."
+
+  copy_editor:
+    stream:
+      title: "Editing final copy"
+    model:
+      provider: *scripted
+      model_id: scripted
+      params:
+        final_text: "Final: polished report combining the research summary with the data points."
+    system_prompt: "You copy-edit the final report."
+
+orchestrations:
+  research_swarm:
+    mode: swarm
+    agents: [planner, writer]
+    entry_name: planner
+    max_handoffs: 10
+
+  research_pipeline:
+    mode: graph
+    entry_name: content_strategist
+    chat_output: copy_editor
+    edges:
+      - from: content_strategist
+        to: research_swarm
+      - from: content_strategist
+        to: market_researcher
+      - from: research_swarm
+        to: copy_editor
+      - from: market_researcher
+        to: copy_editor
+
+entry: research_pipeline
+log_level: INFO

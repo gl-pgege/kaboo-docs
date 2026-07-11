@@ -6,10 +6,11 @@ Wire all three libraries into one runnable app: YAML agents served over AG-UI
 (**kaboo-react**), backed by Postgres.
 
 This tutorial follows the
-[kaboo-workflows-demo](https://github.com/gl-pgege/kaboo-workflows-demo) — a
-market-research assistant with delegated sub-agents, human-in-the-loop
-approvals, and full replay across reloads. Clone it to follow along with real,
-validated code.
+[kaboo-workflows-demo](https://github.com/gl-pgege/kaboo-docs/tree/main/examples/kaboo-workflows-demo)
+example shipped in this repo — a market-research assistant with delegated
+sub-agents, human-in-the-loop approvals, and full replay across reloads. Clone
+this repo and work from `examples/kaboo-workflows-demo/` to follow along with
+real, validated code.
 
 ## Architecture & ports
 

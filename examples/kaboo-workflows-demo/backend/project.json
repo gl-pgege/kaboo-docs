@@ -1,0 +1,65 @@
+{
+  "name": "backend",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "command": "npx nest build",
+      "options": {
+        "cwd": "backend"
+      },
+      "inputs": ["production"],
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "serve": {
+      "command": "npx nest start --watch",
+      "options": {
+        "cwd": "backend"
+      },
+      "continuous": true
+    },
+    "lint": {
+      "command": "npx eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+      "options": {
+        "cwd": "backend"
+      }
+    },
+    "test": {
+      "command": "npx jest",
+      "options": {
+        "cwd": "backend"
+      },
+      "cache": true
+    },
+    "db:up": {
+      "command": "docker compose up -d postgres",
+      "options": {
+        "cwd": "."
+      }
+    },
+    "db:migrate": {
+      "command": "npx prisma migrate deploy",
+      "options": {
+        "cwd": "backend"
+      }
+    },
+    "db:seed": {
+      "command": "npx prisma db seed",
+      "options": {
+        "cwd": "backend"
+      }
+    },
+    "db:generate": {
+      "command": "npx prisma generate",
+      "options": {
+        "cwd": "backend"
+      }
+    },
+    "db:setup": {
+      "command": "docker compose up -d postgres && sleep 3 && cd backend && npx prisma migrate deploy && npx prisma db seed",
+      "options": {
+        "cwd": "."
+      }
+    }
+  },
+  "implicitDependencies": []
+}

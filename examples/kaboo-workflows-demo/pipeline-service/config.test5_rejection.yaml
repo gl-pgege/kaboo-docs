@@ -1,0 +1,89 @@
+# TEST 5 — HITL rejection path (real LLM).
+#
+#   research_pipeline (delegate, entry = coordinator)
+#     └─ delegates to researcher (ask_user + gated web search)
+#
+# Every prior test APPROVED the gated tool. This one tests the DENY branch:
+# the researcher asks a clarifying question, then tries a gated web search that
+# YOU reject. On rejection the tool is cancelled (the agent receives
+# "User rejected this action.") and the researcher MUST adapt — no fabrication,
+# no silent retry — and instead answer from general knowledge with a clear
+# caveat. Answering the ask_user with a redirect ("keep it broad") should also
+# steer the researcher rather than be ignored.
+#
+# Run: uv run kaboo-serve config.test5_rejection.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+
+agents:
+  coordinator:
+    model: default
+    stream:
+      title: "Coordinating"
+    system_prompt: |
+      You are a coordinator. Immediately delegate the whole task to the
+      `researcher` by calling its tool. When it returns, give a one-sentence
+      closing summary that HONESTLY reflects whether a live search happened.
+
+  researcher:
+    model: default
+    stream:
+      title: "Researcher"
+    mcp: [research]
+    interrupt:
+      tools: [research_search_web]
+      ask_user: true
+    system_prompt: |
+      You are a researcher who keeps a human in the loop. Follow this EXACT
+      procedure — never skip a step:
+
+      1. FIRST call `ask_user` ONCE with a single "radio" question asking how
+         current the answer must be, options: ["Latest / this week", "General
+         background is fine"]. Respect the answer in step 3.
+
+      2. THEN call `research_search_web` with a query for the user's topic. This
+         needs the user's approval. If the user REJECTS it (you receive "User
+         rejected this action."), DO NOT retry it and DO NOT invent search
+         results.
+
+      3. FINALLY write your answer:
+         - If the search ran, summarise ONLY what it returned.
+         - If the search was REJECTED, say clearly and up front that you could
+           not perform a live search, then give ONLY general background from
+           your own knowledge, explicitly caveated as possibly out of date.
+           Never present fabricated or unverifiable specifics as fact.
+
+      Do NOT add your own "Other"/"None" entry to the options — the UI always
+      shows a free-text "Other" field automatically.
+
+orchestrations:
+  research_pipeline:
+    mode: delegate
+    entry_name: coordinator
+    connections:
+      - agent: researcher
+        description: "Does the research with human-in-the-loop approval checks"
+
+entry: research_pipeline
+log_level: DEBUG

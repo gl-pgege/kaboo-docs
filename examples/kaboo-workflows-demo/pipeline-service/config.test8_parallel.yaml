@@ -1,0 +1,83 @@
+# TEST 8 — Parallel gated tool calls (real LLM).
+#
+#   research_pipeline (delegate, entry = coordinator)
+#     └─ delegates to analyst (calls TWO gated tools in ONE parallel step)
+#
+# Unlike Test 7 (which SEQUENCED the two gates via the prompt), this forces the
+# model to emit BOTH tool calls in a SINGLE assistant message so strands runs
+# them concurrently and BOTH interrupts become pending at once. Verifies the
+# UI behaviour when 2+ HITL gates are live simultaneously:
+#   - are both surfaced (one card at a time, in order), or
+#   - does resolving the first prematurely auto-cancel the second?
+#
+# Try: approve BOTH (expect both to run). Then retry approving one / rejecting
+# the other to confirm mixed resolution survives the parallel path.
+#
+# Run: uv run kaboo-serve config.test8_parallel.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+      research_fetch_pricing: "Fetching pricing signals"
+
+agents:
+  coordinator:
+    model: default
+    stream:
+      title: "Coordinating"
+    system_prompt: |
+      You are a coordinator. Immediately delegate the whole task to the
+      `analyst` by calling its tool. When it returns, give a one-sentence
+      closing summary that honestly notes if any data source was declined.
+
+  analyst:
+    model: default
+    stream:
+      title: "Analyst"
+    mcp: [research]
+    interrupt:
+      tools: [research_search_web, research_fetch_pricing]
+    system_prompt: |
+      You are a market analyst. Speed matters, so gather data in PARALLEL.
+
+      In your VERY FIRST step you MUST call BOTH tools AT THE SAME TIME, in a
+      single response (parallel tool use):
+        - `research_search_web` with a query for the user's segment, AND
+        - `research_fetch_pricing` for the same segment.
+      Do NOT call one, wait for its result, then call the other — emit both
+      tool calls together in the same step.
+
+      Both calls require the user's approval. If a call is REJECTED (you receive
+      "User rejected this action."), do NOT retry it and do NOT invent its data.
+      Then write a concise market summary using whatever was approved, and state
+      up front which data source (if any) was declined.
+
+orchestrations:
+  research_pipeline:
+    mode: delegate
+    entry_name: coordinator
+    connections:
+      - agent: analyst
+        description: "Gathers market data from two sources in parallel, with approval gates"
+
+entry: research_pipeline
+log_level: DEBUG

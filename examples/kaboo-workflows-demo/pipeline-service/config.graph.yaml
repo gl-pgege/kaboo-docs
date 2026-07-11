@@ -1,0 +1,103 @@
+# Graph scenario — deterministic DAG doing REAL work with a live LLM, as a
+# first-class AG-UI entry (no delegate manager fronting it). The graph IS the
+# chat: kaboo's multi-agent adapter drives it directly and streams the
+# `chat_output` node's text as the assistant reply, while every node run renders
+# as an inline card. Execution order is fixed by the edges, not by any agent
+# decision:
+#
+#   content_strategist ──▶ content_writer ─┐
+#                     └──▶ market_researcher ┴──▶ copy_editor
+#
+# content_writer and market_researcher form a PARALLEL batch (both depend only on
+# the strategist), then copy_editor merges both. `chat_output: copy_editor` makes
+# the editor's text the chat bubble. Uses the real `default` model.
+#
+# Run:  uv run kaboo-serve config.graph.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+
+agents:
+  content_strategist:
+    model: default
+    description: "Plans the structure of the report."
+    stream:
+      title: "Planning strategy"
+    system_prompt: |
+      You are a content strategist. Given the user's request, produce a short,
+      concrete outline for a market report: 3-4 sections with a one-line note on
+      what each should cover. Keep it tight — this outline guides a writer and a
+      researcher working in parallel.
+
+  content_writer:
+    model: default
+    description: "Drafts the narrative from the outline."
+    stream:
+      title: "Writing draft"
+    system_prompt: |
+      You are a content writer. You receive a content outline. Write a concise
+      narrative draft of the report following the outline's sections. Write
+      prose, not bullet points. You do not have research tools — write from the
+      outline; the researcher is gathering supporting data in parallel.
+
+  market_researcher:
+    model: default
+    description: "Gathers supporting data with web search."
+    stream:
+      title: "Gathering data points"
+    mcp: [research]
+    system_prompt: |
+      You are a market researcher. You receive a content outline. Use the web
+      search tool to gather concrete supporting data points (figures, growth
+      rates, sources) for the outline's sections. Run a few targeted searches
+      and return the findings as a compact, sourced list.
+
+  copy_editor:
+    model: default
+    description: "Merges draft + data into the final report."
+    stream:
+      title: "Editing final copy"
+    system_prompt: |
+      You are a copy editor. You receive a narrative draft and a list of
+      supporting data points. Merge them into a single polished, well-structured
+      final report: weave the data into the narrative, add section headings, fix
+      flow, and end with a short key-takeaways list. This is the final answer to
+      the user.
+
+orchestrations:
+  research_pipeline:
+    mode: graph
+    entry_name: content_strategist
+    chat_output: copy_editor
+    edges:
+      - from: content_strategist
+        to: content_writer
+      - from: content_strategist
+        to: market_researcher
+      - from: content_writer
+        to: copy_editor
+      - from: market_researcher
+        to: copy_editor
+
+entry: research_pipeline
+log_level: INFO

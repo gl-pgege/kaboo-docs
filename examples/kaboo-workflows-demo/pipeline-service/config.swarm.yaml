@@ -1,0 +1,87 @@
+# Swarm scenario — peer agents doing REAL work with a live LLM, as a first-class
+# AG-UI entry (no delegate manager fronting it). The swarm IS the chat: kaboo's
+# multi-agent adapter drives it directly and streams the `chat_output` node's
+# text as the assistant reply, while every peer run renders as an inline card.
+#
+#   research_pipeline (swarm): planner → researcher → writer
+#
+# Each agent genuinely reasons/works, then decides to hand off:
+#   - planner turns the request into a concrete research plan, then hands off.
+#   - researcher uses the (mock) web-search MCP to gather findings, then hands off.
+#   - writer synthesises the findings into the final report (the chat bubble).
+#
+# `chat_output: writer` makes the writer's text the chat reply. Uses the real
+# `default` model, so behaviour reflects an actual multi-agent pipeline.
+#
+# Run:  uv run kaboo-serve config.swarm.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+
+agents:
+  planner:
+    model: default
+    description: "Turns the request into a research plan, then hands off."
+    stream:
+      title: "Planning the work"
+    system_prompt: |
+      You are a research planner in a three-agent swarm (planner → researcher →
+      writer). Given the user's request, write a short, concrete research plan:
+      2-4 specific questions the researcher should answer. State the plan in a
+      couple of sentences, then hand off to the `researcher` agent, passing the
+      plan as the handoff message. Do not do the research yourself.
+
+  researcher:
+    model: default
+    description: "Gathers market data with web search, then hands off."
+    stream:
+      title: "Gathering market data"
+    mcp: [research]
+    system_prompt: |
+      You are a market-data researcher in a swarm. You receive a research plan.
+      Use the web search tool to gather concrete findings for each question in
+      the plan (run multiple searches as needed). Summarise the raw findings
+      with sources, then hand off to the `writer` agent, passing your findings
+      as the handoff message. Do not write the final report yourself.
+
+  writer:
+    model: default
+    description: "Writes the final report from the gathered findings."
+    stream:
+      title: "Writing the report"
+    system_prompt: |
+      You are a report writer in a swarm. You receive research findings. Produce
+      a clear, well-structured final report with short sections and a summary of
+      key takeaways. This is the final answer to the user — do NOT hand off to
+      anyone; just write the report.
+
+orchestrations:
+  research_pipeline:
+    mode: swarm
+    agents: [planner, researcher, writer]
+    entry_name: planner
+    chat_output: writer
+    max_handoffs: 10
+
+entry: research_pipeline
+log_level: INFO

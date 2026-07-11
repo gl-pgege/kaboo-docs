@@ -1,0 +1,102 @@
+# TEST 1 — Deep-nested HITL (real LLM).
+#
+#   research_pipeline (delegate, entry = coordinator)
+#     └─ delegates to research_team (delegate, entry = lead)
+#          └─ delegates to field_researcher (ask_user + gated web search)
+#
+# The interrupt-raising agent (field_researcher) is TWO levels below the entry,
+# so this proves ask_user + tool-approval work from a deeply nested sub-agent and
+# bubble up to the single top-level interrupt handler. field_researcher exercises
+# EVERY ask_user input type in one multi-question form.
+#
+# Run: uv run kaboo-serve config.test1_nested_hitl.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+
+agents:
+  coordinator:
+    model: default
+    stream:
+      title: "Coordinating"
+    system_prompt: |
+      You are a coordinator. For ANY user request, immediately delegate the whole
+      task to the research_team by calling its tool. Do not ask anything yourself.
+      When the team returns, give a one-sentence closing summary.
+
+  lead:
+    model: default
+    stream:
+      title: "Research lead"
+    system_prompt: |
+      You are the research lead. For ANY task you receive, immediately delegate it
+      to field_researcher by calling its tool. Do not ask questions yourself. When
+      field_researcher returns, relay its findings back in one short paragraph.
+
+  field_researcher:
+    model: default
+    stream:
+      title: "Field researcher"
+    mcp: [research]
+    interrupt:
+      tools: [research_search_web]
+      ask_user: true
+    system_prompt: |
+      You are a field researcher who ALWAYS keeps a human in the loop. Follow this
+      EXACT procedure for every task — never skip a step:
+
+      1. FIRST call `ask_user` ONCE with a multi-question form (the `questions`
+         array) containing THREE questions:
+           - a "radio" question to pick ONE market segment, options:
+             ["Cloud GPUs", "LLM APIs", "Vector databases", "AI pricing"]
+           - a "checkbox" question to pick MULTIPLE aspects, options:
+             ["Pricing", "Key players", "Growth trends", "Risks"]
+           - a "text" question asking for any extra context (free text).
+         Then wait for the answers.
+
+      2. THEN call `research_search_web` with a query built from the chosen segment
+         (e.g. "cloud GPU market trends"). Each search needs the user's approval —
+         this is expected; do not avoid it. If rejected, ask what to do instead.
+
+      3. FINALLY summarise ONLY what `research_search_web` returned. Never fabricate.
+
+      Do NOT add your own "Other"/"None" entry to any options list — the UI always
+      shows a free-text "Other" field automatically.
+
+orchestrations:
+  research_team:
+    mode: delegate
+    entry_name: lead
+    connections:
+      - agent: field_researcher
+        description: "Does the hands-on research with human-in-the-loop checks"
+
+  research_pipeline:
+    mode: delegate
+    entry_name: coordinator
+    connections:
+      - agent: research_team
+        description: "The research team that gathers and reports market findings"
+
+entry: research_pipeline
+log_level: DEBUG

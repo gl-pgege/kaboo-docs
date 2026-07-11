@@ -14,8 +14,9 @@ per-library API docs live on each library's own Pages site.
   persistence (AgentRunner + ThreadStore).
 - [kaboo-react](https://github.com/gl-pgege/kaboo-react) — React components/hooks
   for agent-activity UI.
-- [kaboo-workflows-demo](https://github.com/gl-pgege/kaboo-workflows-demo) — a
-  runnable, end-to-end reference.
+- [kaboo-workflows-demo](https://github.com/gl-pgege/kaboo-docs/tree/main/examples/kaboo-workflows-demo) — a
+  runnable, end-to-end reference, shipped as an example in this repo under
+  [`examples/`](./examples/kaboo-workflows-demo).
 
 ## Develop
 

@@ -1,0 +1,21 @@
+{
+  "name": "kaboo-workflows-demo",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "nx run-many --target=serve --parallel=3",
+    "build": "nx run-many --target=build",
+    "lint": "nx run-many --target=lint",
+    "graph": "nx graph",
+    "db:up": "nx run backend:db:up",
+    "db:migrate": "nx run backend:db:migrate",
+    "db:seed": "nx run backend:db:seed",
+    "db:setup": "nx run backend:db:setup"
+  },
+  "devDependencies": {
+    "nx": "latest"
+  }
+}

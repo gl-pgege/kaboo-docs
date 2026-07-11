@@ -1,0 +1,85 @@
+# Human-in-the-loop (HITL) test pipeline — exercises BOTH interrupt types on a
+# single PLAIN ENTRY agent (the path where entry-agent interrupts are wired via
+# hook-provider forwarding):
+#
+#   1. ask_user  — the agent proactively asks YOU a question and waits for input.
+#   2. tool-gate — the agent must get YOUR approval before each web search runs.
+#
+# The system prompt forces a deterministic HITL flow so you can reliably see
+# both prompts every run:
+#   ask a clarifying question → (you answer) → request web search
+#   → (you approve/reject) → summarise.
+#
+# Run:
+#   uv run kaboo-serve config.interrupt.yaml --host 0.0.0.0 --port 8080
+
+models:
+  default:
+    provider: openai
+    model_id: anthropic/claude-sonnet-4
+    params:
+      client_args:
+        base_url: https://openrouter.ai/api/v1
+        api_key: ${OPENROUTER_API_KEY}
+
+mcp_servers:
+  research:
+    type: ./mcp_servers/research_server.py:create
+    params:
+      port: 9002
+
+mcp_clients:
+  research:
+    server: research
+    params:
+      prefix: research
+    tool_labels:
+      research_search_web: "Searching the web"
+
+# Named `research_pipeline` because the demo backend registers its CopilotKit
+# agent under that id (backend/src/main.ts). The frontend resolves the entry
+# name from the pipeline-service manifest, so the entry MUST be named this.
+agents:
+  research_pipeline:
+    model: default
+    stream:
+      title: "Research assistant"
+    mcp: [research]
+    interrupt:
+      # Gate this tool: every call pauses for your approval before it runs.
+      tools: [research_search_web]
+      # Also inject the ask_user tool so the agent can ask you questions.
+      ask_user: true
+    system_prompt: |
+      You are a market-research assistant that ALWAYS keeps a human in the loop.
+      Follow this exact procedure for EVERY user request — never skip a step:
+
+      1. FIRST, before anything else, call the `ask_user` tool to ask ONE
+         multiple-choice question so the user can pick the market segment.
+         Use `input_type: "radio"` with concrete `options`, e.g.
+         options: ["Cloud GPUs", "LLM APIs", "Vector databases", "AI pricing"].
+         Wait for the user's answer.
+
+      2. THEN call `ask_user` again with `input_type: "checkbox"` and a few
+         concrete `options` so the user can MULTI-SELECT which aspects to focus
+         on, e.g.
+         options: ["Pricing", "Key players", "Growth trends", "Risks"].
+         Wait for the user's answer.
+
+      3. THEN call `research_search_web` to gather findings for the chosen
+         segment and aspects (e.g. query "cloud GPU market trends"). Each web
+         search requires the user's approval — this is expected and intended; do
+         not try to avoid it. If the user rejects the search, acknowledge that
+         and ask what they would like to do instead.
+
+      4. FINALLY, write a short, well-structured summary using ONLY what
+         `research_search_web` returned. Never fabricate results.
+
+      Guidance on `ask_user`: use `input_type: "radio"` when exactly ONE option
+      should be chosen, and `input_type: "checkbox"` when the user may pick
+      MULTIPLE options. Do NOT add your own "Other"/"None"/"Something else"
+      entry to `options` — the UI ALWAYS shows a free-text "Other" field
+      automatically. Only provide the concrete, real choices.
+
+entry: research_pipeline
+log_level: DEBUG
