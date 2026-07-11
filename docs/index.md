@@ -26,6 +26,9 @@ flowchart LR
   R -->|streamed events| C
 ```
 
+New here? [**Start here**](start-here.md) to pick a path, or follow the
+[**full-stack tutorial**](full-stack-tutorial.md) to wire all three together.
+
 ## Libraries
 
 <div class="grid cards" markdown>

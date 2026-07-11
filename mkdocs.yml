@@ -34,4 +34,10 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Start here: start-here.md
+  - Full-stack tutorial: full-stack-tutorial.md
+  - Libraries:
+      - kaboo-workflows: https://gl-pgege.github.io/kaboo-workflows/
+      - kaboo-runtime: https://gl-pgege.github.io/kaboo-runtime/
+      - kaboo-react: https://gl-pgege.github.io/kaboo-react/
   - Contributing to the kaboo stack: contributing.md
