@@ -19,9 +19,9 @@
       {{ render(first, ref) }}
     {% else %}
       <li class="{{ class }} md-tabs__item--dropdown">
-        <button type="button" class="md-tabs__link md-tabs__link--dropdown" aria-haspopup="true" aria-expanded="false">
+        <span class="md-tabs__link md-tabs__link--dropdown" role="button" tabindex="0" aria-haspopup="true">
           {{ nav_item.title }}
-        </button>
+        </span>
         <ul class="md-tabs__dropdown">
           {% for child in nav_item.children %}
             <li class="md-tabs__dropdown-item">
