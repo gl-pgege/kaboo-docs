@@ -5,6 +5,8 @@ repo_url: https://github.com/gl-pgege/kaboo-docs
 
 theme:
   name: material
+  logo: assets/kaboo-icon.svg
+  favicon: assets/kaboo-icon.svg
   features:
     - content.code.copy
     - navigation.tabs
