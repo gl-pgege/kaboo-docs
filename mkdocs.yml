@@ -5,6 +5,7 @@ repo_url: https://github.com/gl-pgege/kaboo-docs
 
 theme:
   name: material
+  custom_dir: overrides
   logo: assets/kaboo-icon.svg
   favicon: assets/kaboo-icon.svg
   features:
@@ -22,10 +23,16 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
 
+extra_css:
+  - assets/tabs-dropdown.css
+
 markdown_extensions:
   - admonition
   - attr_list
   - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
