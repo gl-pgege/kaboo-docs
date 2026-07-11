@@ -170,15 +170,21 @@ sequenceDiagram
   Note over U,B: On reload, kaboo-runtime replays the stored log from DB
 ```
 
-## How it wires to the libraries (development)
+## How it wires to the libraries
 
-Today the demo consumes the libraries **locally** (monorepo siblings):
+The demo consumes the libraries as published packages:
 
-| Consumer | Library | Link |
+| Consumer | Package | Dependency |
 |---|---|---|
-| `backend/package.json` | kaboo-runtime | `"kaboo-runtime": "file:../../kaboo-runtime"` |
-| `frontend/package.json` | kaboo-react | `"kaboo-react": "file:../../kaboo-react"` |
-| `pipeline-service/pyproject.toml` | kaboo-workflows | `[tool.uv.sources] kaboo-workflows = { path = "../../kaboo-workflows", editable = true }` |
+| `backend/package.json` | `@pgege/kaboo-runtime` (npm) | `"@pgege/kaboo-runtime": "^0.1.0"` |
+| `frontend/package.json` | `@pgege/kaboo-react` (npm) | `"@pgege/kaboo-react": "^0.1.0"` |
+| `pipeline-service/pyproject.toml` | `kaboo-workflows` (PyPI) | `[tool.uv.sources] kaboo-workflows = { path = "../../kaboo-workflows", editable = true }` |
+
+> The npm packages are scoped under `@pgege`. Until the libraries are published to
+> the registries, install them locally instead — e.g. `yarn link` the built
+> `@pgege/kaboo-*` packages, or point each dependency at a local build
+> (`file:<path-to-repo>`). The pipeline still resolves `kaboo-workflows` from a
+> local editable path; swap it for the PyPI release once published.
 
 ### The `backend/tsconfig.json` paths workaround
 
@@ -190,27 +196,15 @@ Today the demo consumes the libraries **locally** (monorepo siblings):
 }
 ```
 
-**Why:** because kaboo-runtime is linked via `file:`, it brings its own copies of
-`@ag-ui/client` / `@copilotkit/runtime` / `rxjs`. Without pinning, TypeScript
-sees duplicate type declarations for the same package and `nest build` /
-typecheck fails on incompatible-but-identical types. These `paths` entries force a
-single canonical `.d.ts` per package. The frontend does the runtime analogue in
-`vite.config.ts` with `resolve.dedupe: ["react", "react-dom", "@copilotkit/react-core"]`.
-
-### Switching to published versions
-
-Once the libraries are released, flip the demo from monorepo-local to published in
-one commit:
-
-- [ ] **backend:** replace `"kaboo-runtime": "file:../../kaboo-runtime"` with
-  `"kaboo-runtime": "^<version>"`; `yarn install`. The duplicate-types problem
-  should disappear (single install from the registry), so the `paths` workaround
-  in `backend/tsconfig.json` can likely be removed — verify `nest build` +
-  typecheck pass, then delete it.
-- [ ] **frontend:** replace `"kaboo-react": "file:../../kaboo-react"` with the
-  published `^<version>`; re-check `resolve.dedupe` in `vite.config.ts`.
-- [ ] **pipeline-service:** drop `[tool.uv.sources]` and depend on the PyPI
-  `kaboo-workflows[openai]>=<version>`.
+**Why:** when `@pgege/kaboo-runtime` is linked locally (`file:` / `yarn link`), it
+brings its own copies of `@ag-ui/client` / `@copilotkit/runtime` / `rxjs`. Without
+pinning, TypeScript sees duplicate type declarations for the same package and
+`nest build` / typecheck fails on incompatible-but-identical types. These `paths`
+entries force a single canonical `.d.ts` per package. Installing from the registry
+dedupes these, so the workaround can be removed once you consume the published
+versions (verify `nest build` + typecheck first). The frontend does the runtime
+analogue in `vite.config.ts` with
+`resolve.dedupe: ["react", "react-dom", "@copilotkit/react-core"]`.
 
 ## Troubleshooting
 

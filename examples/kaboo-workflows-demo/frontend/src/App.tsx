@@ -6,9 +6,9 @@ import {
   DrillDetailView,
   GlassTabs,
   useDrill,
-} from "kaboo-react";
-import { KabooMessageView } from "kaboo-react/copilotkit";
-import "kaboo-react/styles.css";
+} from "@pgege/kaboo-react";
+import { KabooMessageView } from "@pgege/kaboo-react/copilotkit";
+import "@pgege/kaboo-react/styles.css";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 function useManifest(url: string) {
