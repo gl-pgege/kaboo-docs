@@ -125,5 +125,25 @@ Then open <http://localhost:3000>.
 | [kaboo-runtime](https://gl-pgege.github.io/kaboo-runtime/) | CopilotKit `AgentRunner` + `PostgresThreadStore` persist and replay the event log. |
 | [kaboo-react](https://gl-pgege.github.io/kaboo-react/) | Renders the stream as a live activity tree with drill-down + HITL. |
 
+## Going to production: the host integration seams
+
+A real backend (multi-user, files behind auth, many agent definitions) uses
+three seams this demo doesn't need:
+
+- **Per-run context — `forwardedProps`.** Your Node backend attaches a JSON
+  object to each run (CopilotKit forwards it on `RunAgentInput`); the pipeline
+  reads it with `get_forwarded_props()`. Use it for run-scoped credentials and
+  per-run agent config — it never reaches the model as text.
+  → [kaboo-workflows concepts](https://gl-pgege.github.io/kaboo-workflows/concepts/#the-host-side-channel-forwardedprops)
+- **Authorized attachments.** When user files live behind your API's auth,
+  set `attachments.base_url` / `authorization: forwarded_props:<key>` /
+  `content_url_template` in `config.yaml` so agents can fetch them on every
+  turn — the token is only ever sent to your own origin.
+  → [Attachments & Multimodal](https://gl-pgege.github.io/kaboo-workflows/configuration/Chapter_19/)
+- **Thread ownership.** Pass `accessPolicy: { ownerOf }` to
+  `createKabooRunner` so each thread records its owning user, surfaced as
+  `createdById` in the thread list your backend filters per caller.
+  → [Access control](https://gl-pgege.github.io/kaboo-runtime/access-control/)
+
 New to the pieces? Start with [Start here](start-here.md) to pick a single-library
 path first.

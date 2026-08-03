@@ -21,7 +21,10 @@ flowchart TD
 Define models, agents, tools, MCP servers, and multi-agent orchestrations
 (delegate / swarm / graph / parallel / nested) in **YAML**, then serve them as an
 AG-UI SSE endpoint. `load()` returns plain `strands` objects, so you can also
-drive agents in-process.
+drive agents in-process. Host backends get a first-class per-run side channel
+(`forwardedProps` → `get_forwarded_props()`), authorized attachment fetching
+(`attachments.base_url` / `authorization`), and config-gated per-invocation
+prompt/model overrides (`runtime.allow_invocation_overrides`).
 
 → [kaboo-workflows](https://gl-pgege.github.io/kaboo-workflows/) ·
 [Getting started](https://gl-pgege.github.io/kaboo-workflows/getting-started/)
@@ -31,7 +34,9 @@ drive agents in-process.
 Drop a plugin into a **CopilotKit runtime** (NestJS or any Node framework) that
 records the full event log per thread and replays it on reconnect — so a browser
 refresh mid-run or post-run restores exactly what happened. Ships an
-`InMemoryThreadStore` and a `PostgresThreadStore`.
+`InMemoryThreadStore` and a `PostgresThreadStore`, and records real thread
+ownership (`accessPolicy.ownerOf` → `createdById`) so hosts can scope thread
+lists per caller without parsing ids.
 
 → [kaboo-runtime](https://gl-pgege.github.io/kaboo-runtime/) ·
 [Concepts](https://gl-pgege.github.io/kaboo-runtime/concepts/)
