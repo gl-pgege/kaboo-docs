@@ -23,8 +23,10 @@ Define models, agents, tools, MCP servers, and multi-agent orchestrations
 AG-UI SSE endpoint. `load()` returns plain `strands` objects, so you can also
 drive agents in-process. Host backends get a first-class per-run side channel
 (`forwardedProps` → `get_forwarded_props()`), authorized attachment fetching
-(`attachments.base_url` / `authorization`), and config-gated per-invocation
-prompt/model overrides (`runtime.allow_invocation_overrides`).
+(`attachments.base_url` / `authorization`), and — with
+`create_agui_app(session_config_key=...)` — **runs that submit their own config**,
+so one process serves many workflows and editing one takes effect on the next turn
+without a restart.
 
 → [kaboo-workflows](https://gl-pgege.github.io/kaboo-workflows/) ·
 [Getting started](https://gl-pgege.github.io/kaboo-workflows/getting-started/)
@@ -36,7 +38,9 @@ records the full event log per thread and replays it on reconnect — so a brows
 refresh mid-run or post-run restores exactly what happened. Ships an
 `InMemoryThreadStore` and a `PostgresThreadStore`, and records real thread
 ownership (`accessPolicy.ownerOf` → `createdById`) so hosts can scope thread
-lists per caller without parsing ids.
+lists per caller without parsing ids. Persisted state is replayed into the next
+run, which is what makes conversation history server-owned and a pending
+human-in-the-loop approval durable across a restart.
 
 → [kaboo-runtime](https://gl-pgege.github.io/kaboo-runtime/) ·
 [Concepts](https://gl-pgege.github.io/kaboo-runtime/concepts/)

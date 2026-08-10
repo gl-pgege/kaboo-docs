@@ -128,13 +128,20 @@ Then open <http://localhost:3000>.
 ## Going to production: the host integration seams
 
 A real backend (multi-user, files behind auth, many agent definitions) uses
-three seams this demo doesn't need:
+four seams this demo doesn't need:
 
 - **Per-run context — `forwardedProps`.** Your Node backend attaches a JSON
   object to each run (CopilotKit forwards it on `RunAgentInput`); the pipeline
   reads it with `get_forwarded_props()`. Use it for run-scoped credentials and
   per-run agent config — it never reaches the model as text.
   → [kaboo-workflows concepts](https://gl-pgege.github.io/kaboo-workflows/concepts/#the-host-side-channel-forwardedprops)
+- **Many workflows, one pipeline.** This demo serves one `config.yaml`. When your
+  agent definitions live in *your* database, serve with
+  `create_agui_app(config, session_config_key="workflow_config")` and put each
+  run's YAML in `forwardedProps` under that key. The pipeline builds that run's
+  agents and releases them with the run, so editing a definition takes effect on
+  the next turn and `config.yaml` shrinks to shared models and MCP clients.
+  → [Multi-file configs & session overlays](https://gl-pgege.github.io/kaboo-workflows/configuration/Chapter_13/#the-second-merge-mode-session-overlays)
 - **Authorized attachments.** When user files live behind your API's auth,
   set `attachments.base_url` / `authorization: forwarded_props:<key>` /
   `content_url_template` in `config.yaml` so agents can fetch them on every
