@@ -112,8 +112,11 @@ Then open <http://localhost:3000>.
 - Ask **"Research the cloud GPU market and compare top providers"** and watch the
   coordinator delegate to the research team, analyst, and writer, with
   hierarchical activity cards streaming live.
-- **Human-in-the-loop:** the researcher gates a tool and can `ask_user`; approve
-  or decline inline.
+- **Human-in-the-loop:** the researcher gates a tool and can `ask_user` with
+  multiple-choice questions (Other is always there); approve once, approve all,
+  or deny with a reason inline — or just send a message to skip what is waiting.
+  With a grant store on the runtime, "Allow for this chat" and "Always allow"
+  are remembered too.
 - **Replay:** refresh the page mid-run or post-run — the full event log restores
   from Postgres.
 

@@ -160,7 +160,7 @@ Top-level YAML keys: `version`, `vars`, `x-*` (anchors, stripped), `models`, `mc
 ### 4.4 Security & safety
 
 - **CORS default permissive:** `allow_origins=["*"]`, `allow_credentials=True` (`adapters/agui.py:900–901`), and `kaboo-serve` binds `0.0.0.0:8080` (`serve.py:28`, `# noqa: S104 # nosec B104`) → **production must pass explicit `--cors-origin`** and front with TLS/reverse proxy.
-- **HITL never silently approves:** a pending interrupt that isn't addressed defaults to `{"status": "cancelled"}` (`adapters/agui.py:176,187–188`; `adapters/_multiagent.py:291,298–299`); a rejected/cancelled approval cancels the tool (`hooks/interrupt_hook.py:51`; `tools/ask_user.py:33`).
+- **HITL never silently approves:** a gated call runs only on an `{"status": "approved"}` answer (`hooks/interrupt_hook.py`); a pending interrupt the resume does not address, and an AG-UI `cancelled` entry, answer `{"status": "cancelled", "skipped": true}`, and one answered after its deadline answers `{"status": "cancelled", "expired": true}` (`adapters/_interrupts.py: build_resume_responses`, shared by both adapters).
 - **Transcript normalization:** closes abandoned tool calls on supersede, collapses duplicate HITL results, and *refuses malformed history* with `RUN_ERROR code=MALFORMED_HISTORY` (`adapters/agui.py:795`, transcript-repair region ~lines 213–379 / 771–799).
 - **MCP lifecycle:** servers start → ready (30s) → clients pinned; teardown clients → servers; idempotent; context-manager required.
 - **Thread identity:** one conversation = one AG-UI `thread_id` = the session id; swarm/graph agents may **not** have session managers (fail-fast).
@@ -261,7 +261,7 @@ Each `ACTIVITY_SNAPSHOT` is a **full replacement**; consumers re-render. Roots =
 2. **delegate sub-agents** via `useRenderTool` in `KabooInlineCards`;
 3. **plain tools** via `KabooToolRender`.
 
-Interrupts render inline at the tool position when an anchor exists, else in a chat slot; approval → `{status:"approved"}`, form → `{question: answer}` map; custom renderers via `interruptRenderers`.
+Interrupts render inline at the tool position when an anchor exists, else in a chat slot. Approval → `{status:"approved", scope}` (Approve, Allow for this chat, Always allow, with "Applies to …" naming what the wider ones cover; tool-requested approvals render the same), deny → `{status:"cancelled", reason?}`, skip → `cancel()`; form → `{question: answer}` map from the multiple-choice card (Other on every question). Two or more waiting approvals get Approve all / Deny all; a message sent while anything waits skips it. Custom renderers via `interruptRenderers`, keyed by any request kind (`files`, `datasources`); `ApprovalActions` / `useApprovalDecision` / `buildAnswerPayload` keep custom cards standard.
 
 ### 6.4 Theming & extension
 
@@ -290,6 +290,78 @@ The Vite dev server proxies `/api/copilotkit` → `:4000` and `/api/manifest` �
 
 **Full-stack request:** browser turn → CopilotKit → kaboo-runtime runner (`run`) → `HttpAgent` → kaboo-workflows `/invocations` (SSE) → events stream back, the runner persists on completion, kaboo-react renders live; on **reconnect** → runner `connect` replays the stored log including `ACTIVITY_SNAPSHOT`.
 
+### 7.1 Approvals and questions: who owns what
+
+A question (`ask_user`) and a tool approval are the same pause: an AG-UI
+interrupt that waits — across sessions, restarts and replicas — until the person
+answers, or is skipped when they send a message instead.
+
+**Whoever enforces approvals also decides and remembers them.** There are two
+ways to gate a tool:
+
+1. **The agent gates the tool.** For tools whose name says what they do:
+   - **The tool (MCP server)** describes itself with annotations
+     (`readOnlyHint`, `destructiveHint`) and keeps risky operations in their
+     own tools.
+   - **The agent config is the policy:** `interrupt.tools` (names, globs,
+     `{name, remember, subject}`), `skip_read_only`, `remember` (`once` |
+     `thread` | `always`), `ttl_seconds`. Static YAML, or composed per run by
+     the host. A `subject` should name the resource a call acts on, so a
+     remembered decision never reaches further than what the person saw.
+   - **kaboo-workflows** runs the gate and honours the permissions it is given;
+     it never stores a decision.
+   - **kaboo-runtime** remembers decisions in a pluggable `GrantStore` and
+     hands them to every run (`kaboo_grants`).
+2. **The tool enforces its own approvals.** For generic tools (one
+   `run_mutation` for every change), where only the tool's service knows the
+   account, store, kind of change or item a call touches:
+   - **The service** works out what each call covers, refuses an uncovered
+     call with a `kaboo_approval` reply, remembers the person's decisions and
+     enforces them on every path.
+   - **kaboo-workflows** (`interrupt.tool_approvals: true`) pauses the run on
+     that reply and calls the tool once more when the person approves. The
+     reply never reaches the model.
+   - **kaboo-runtime** hands each decision, with the tool's `request` id, to
+     `onDecision` and never stores it as a grant. The host forwards it to that
+     service, and only to it.
+
+In both: **kaboo-react** shows the options, including what a wider decision
+covers ("Applies to …"), and sends the decision; it stores nothing. **The app**
+owns domain enforcement, change previews and settings pages, and its own
+request kinds. `ask_user` asks multiple-choice questions only.
+
+Policy is config or the enforcing service, decisions are data, enforcement
+belongs to the tool: the host never rewrites a workflow to encode a person's
+decisions.
+
+**Request IDs** are created and checked only by the service. The libraries
+guarantee where one may come from (the tool's reply, then the thread store;
+never the model or the browser). The service must create random IDs bound to
+the person, conversation, resource and call, honour a decision only from the
+host, once, for its own pending request, and check again at execution. The
+full checklist is in kaboo-workflows' human-in-the-loop guide ("Tools that
+enforce their own approvals"); the host's half is in kaboo-runtime's access
+control guide.
+
+**Contract** (inside the AG-UI interrupt protocol):
+
+- Approval request `metadata`: `type: "approval"`, `tool_name`, `tool_input`,
+  `subject` (`key`, `label`), `scopes`, `expiresAt` (in `metadata` only — the
+  AG-UI client locks a thread whose own `expiresAt` passed), and `request`
+  when a tool asked.
+- A tool asking: a normal (not error) result whose structured content or JSON
+  text is `{kaboo_approval: {request, subject?, scopes?, message?,
+  expiresAt?}}`. Gateways reduce error results to text, so an error can't
+  carry it.
+- Question request: `type: "form"`, `questions: [{question, options,
+  multiple}]`. Custom kinds: any other `type`, rendered by the app's renderer.
+- Answers: approve `{status: "approved", scope?, tool_input?}`; deny
+  `{status: "cancelled", reason?}`; answer `{question: answer}`; skip a plain
+  AG-UI `cancelled` entry.
+- Remembered permissions: `forwardedProps.kaboo_grants: [{tool, subject,
+  scope}]`, set only by the host. Open requests for hosts:
+  `state.kaboo_session.approvals` (with `request` for tool-requested ones).
+
 ---
 
 ## 8. Security posture (consolidated)
@@ -297,7 +369,7 @@ The Vite dev server proxies `/api/copilotkit` → `:4000` and `/api/manifest` �
 | Concern | Behavior | What the host must do |
 |---|---|---|
 | CORS (workflows) | default `*` + credentials, binds `0.0.0.0` | pass explicit `--cors-origin`; front with TLS/reverse proxy |
-| HITL approvals | default-to-cancel if unaddressed | keep the invariant; never auto-approve |
+| HITL approvals | only `approved` runs a gated call; unaddressed, skipped and expired requests are cancellations; `kaboo_session` and `kaboo_grants` come only from the server; a tool's `request` id comes only from its reply and never reaches the model | keep the invariants; never auto-approve; remember decisions only in a server-side `GrantStore` or in the enforcing service; a service honours only its own pending requests, once, from the host |
 | Malformed history | refuses with `RUN_ERROR code=MALFORMED_HISTORY` | surface it; don't blindly repair |
 | DB contents | full PII as JSONB, unencrypted, no tenancy | encrypt + scope `threadId` to the authed user |
 | Store failures | routed to `onStoreError`, non-fatal | always wire `onStoreError` |
@@ -343,7 +415,7 @@ Every item below was verified against the code. Treat this as the pre-flight che
 
 - **Non-streaming programmatic path loses wiring.** Using kaboo-workflows programmatically (calling the strands agent directly) gives the final answer but forfeits activity snapshots, interrupt bridging, and `kaboo_history` — all of which live in the serving adapter (`adapters/agui.py`, `adapters/_multiagent.py`), not on the plain strands object.
 - **Permissive default CORS + `0.0.0.0` bind.** `allow_origins=["*"]` + `allow_credentials=True` (`agui.py:900–901`) and `kaboo-serve` binds `0.0.0.0:8080` (`serve.py:28`). Always pass `--cors-origin` in production.
-- **Never auto-approve HITL.** Unaddressed interrupts default to `{"status":"cancelled"}` (default-to-cancel invariant, `agui.py:176/187–188`, `_multiagent.py:291/298–299`). Don't "fix" this to auto-approve.
+- **Never auto-approve HITL.** Only an `approved` answer runs a gated call; unaddressed interrupts answer `{"status":"cancelled","skipped":true}` (`adapters/_interrupts.py: build_resume_responses`). Don't "fix" this to auto-approve.
 - **Malformed-history refusal is intentional.** The adapter emits `RUN_ERROR code=MALFORMED_HISTORY` (`agui.py:795`) rather than silently repairing a broken transcript. Surface it; don't paper over it.
 - **agents-map id must equal the workflows `entry`.** The CopilotKit `agents` key on the Node side must exactly match the YAML `entry` name, or runs won't route.
 - **swarm/graph agents cannot have session managers.** This is fail-fast by design ([§4.4](#44-security--safety)).

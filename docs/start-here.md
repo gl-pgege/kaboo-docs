@@ -71,3 +71,27 @@ flowchart LR
     W -->|AG-UI events| R
     R -->|streamed events| C
 ```
+
+## Upgrading the stack
+
+The libraries can be upgraded **in any order**. Each new version reads what the
+older versions of the others send, and nothing a newer piece sends can be
+mistaken for an approval by an older one (a denial or a skip always travels as a
+cancellation). Each library's upgrade guide lists what to change in your code:
+[kaboo-workflows](https://gl-pgege.github.io/kaboo-workflows/upgrading/) ·
+[kaboo-runtime](https://gl-pgege.github.io/kaboo-runtime/upgrading/) ·
+[kaboo-react](https://gl-pgege.github.io/kaboo-react/upgrading/).
+
+What each feature needs, as of kaboo-workflows 0.27, kaboo-runtime 0.6 and
+kaboo-react 0.10:
+
+| Feature | Needs |
+|---|---|
+| Multiple-choice questions with Other, free text refused | kaboo-workflows (the card: kaboo-react) |
+| Approve all, Deny with a reason, expiry that never locks the chat | kaboo-react and kaboo-workflows |
+| Sending a message skips what is waiting | kaboo-react and kaboo-workflows |
+| "Allow for this chat" and "Always allow" | all three: kaboo-runtime with a grant store remembers, kaboo-workflows offers and honours, kaboo-react shows |
+| Tools that enforce their own approvals (`kaboo_approval`) | all three: kaboo-workflows `interrupt.tool_approvals` pauses, kaboo-runtime's `onDecision` hands the decision (with `request`) to the host for the tool's service, kaboo-react shows "Applies to …" |
+| `enrich`, server-owned `kaboo_session` / `kaboo_history`, replay past aborted runs | kaboo-runtime |
+| Tool annotations for `skip_read_only` | an MCP server that declares them, relayed by localcore-gateway or AgentCore Gateway |
+
