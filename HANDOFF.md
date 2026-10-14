@@ -213,7 +213,7 @@ const runtime = new CopilotRuntime({
 ### 5.4 Release
 
 - `type: module`, ESM+CJS via tsup, `node >= 18`.
-- **Peers:** `@copilotkit/runtime >= 1.62.0`, `@ag-ui/client >= 0.0.57`, `rxjs >= 7.0.0`, optional `pg >= 8.0.0`.
+- **Peers:** `@copilotkit/runtime >=1.78.0 <2`, `@ag-ui/client >=1.0.2 <2`, `rxjs >= 7.0.0`, optional `pg >= 8.0.0` (0.7; 0.6 covers CopilotKit 1.62 to 1.71.1).
 - **`prepack`** = `build` → `docs:api` (TypeDoc, completeness gate = validation-as-errors, regenerates `docs/api-inventory.md`) → `docs:llms` → `docs:verify` (type-checks every `ts` doc snippet) → `test` (vitest). Publish is manual after review: `yarn npm publish`.
 
 ---
@@ -270,7 +270,7 @@ Interrupts render inline at the tool position when an anchor exists, else in a c
 
 ### 6.5 Release
 
-- **Peers:** `@copilotkit/react-core >= 1.62.0`, `react >= 18`, `react-dom >= 18`.
+- **Peers:** `@copilotkit/react-core >=1.78.0 <2`, `react >= 18`, `react-dom >= 18` (0.11; 0.10 covers CopilotKit 1.62 to 1.71.1).
 - tsup ESM+CJS, two entries + `styles.css`. `prepack` also runs `examples:typecheck`.
 - **Not yet published** — publish with `yarn npm publish` (interactive OTP).
 

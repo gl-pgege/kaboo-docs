@@ -82,8 +82,13 @@ cancellation). Each library's upgrade guide lists what to change in your code:
 [kaboo-runtime](https://gl-pgege.github.io/kaboo-runtime/upgrading/) ·
 [kaboo-react](https://gl-pgege.github.io/kaboo-react/upgrading/).
 
-What each feature needs, as of kaboo-workflows 0.27, kaboo-runtime 0.6 and
-kaboo-react 0.10:
+kaboo-runtime and kaboo-react follow CopilotKit's AG-UI generation: 0.7 and
+0.11 run on CopilotKit 1.78 or later (AG-UI 1.0), and 0.6 and 0.10 on CopilotKit
+1.62 to 1.71.1. Move CopilotKit's runtime and react-core with them. kaboo-workflows
+0.27 and 0.28 work with either pair.
+
+What each feature needs, as of kaboo-workflows 0.28, kaboo-runtime 0.7 and
+kaboo-react 0.11:
 
 | Feature | Needs |
 |---|---|
