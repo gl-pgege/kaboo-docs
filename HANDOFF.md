@@ -214,7 +214,7 @@ const runtime = new CopilotRuntime({
 
 - `type: module`, ESM+CJS via tsup, `node >= 18`.
 - **Peers:** `@copilotkit/runtime >=1.78.0 <2`, `@ag-ui/client >=1.0.2 <2`, `rxjs >= 7.0.0`, optional `pg >= 8.0.0` (0.7; 0.6 covers CopilotKit 1.62 to 1.71.1).
-- **`prepack`** = `build` → `docs:api` (TypeDoc, completeness gate = validation-as-errors, regenerates `docs/api-inventory.md`) → `docs:llms` → `docs:verify` (type-checks every `ts` doc snippet) → `test` (vitest). Publish is manual after review: `yarn npm publish`.
+- **`prepack`** = `build` → `docs:api` (TypeDoc, completeness gate = validation-as-errors, regenerates `docs/api-inventory.md`) → `docs:llms` → `docs:verify` (type-checks every `ts` doc snippet) → `test` (vitest). Publish is manual after review: `npm publish`.
 
 ---
 
@@ -272,7 +272,7 @@ Interrupts render inline at the tool position when an anchor exists, else in a c
 
 - **Peers:** `@copilotkit/react-core >=1.78.0 <2`, `react >= 18`, `react-dom >= 18` (0.11; 0.10 covers CopilotKit 1.62 to 1.71.1).
 - tsup ESM+CJS, two entries + `styles.css`. `prepack` also runs `examples:typecheck`.
-- **Not yet published** — publish with `yarn npm publish` (interactive OTP).
+- Publish with `npm publish` (interactive OTP), manually after review.
 
 ---
 
@@ -388,11 +388,11 @@ control guide.
 
 ## 10. Publish status
 
-_Refreshed 2026-08-02:_
+_Refreshed 2026-10-14:_
 
-- **kaboo-workflows**: PyPI has **0.11.0** (plus 0.9.0/0.10.0). **0.12.0** (MCP call-meta, interrupt TTL/edited approvals, multiagent interrupt isolation) and **0.13.0** (forwarded_props, authorized attachment fetching, per-invocation overrides, openai client timeouts) are committed and tagged locally — pushing `main --tags` fires `publish.yml` (Trusted Publishing).
-- **@pgege/kaboo-runtime**: npm has **0.1.1**. **0.2.0** (thread ownership: `owner_id` column, scoped `listThreads`, `accessPolicy` runner options) is committed locally — publish with the `prepack` gate + `yarn npm publish`.
-- **@pgege/kaboo-react**: npm has **0.2.0**. **0.4.0** (tool renderer registry; interrupt renderer overrides on every surface; 0.3.0 fixes folded in) is committed locally — publish with `yarn npm publish` (interactive OTP).
+- **kaboo-workflows**: PyPI has **0.28.0** (the AG-UI 1.0 generation and mcp 2), uploaded locally with `twine` as the repo's RELEASING.md describes; `publish.yml` runs only by hand.
+- **@pgege/kaboo-runtime**: npm has **0.6.0**. **0.6.1** (commit `538e4b2`, the CopilotKit peer capped at 1.71.1) and **0.7.0** (`main`, CopilotKit 1.78+, AG-UI 1.0, Node 20) are waiting to be published in that order with `npm publish`, each after `npm publish --dry-run`, then tagged.
+- **@pgege/kaboo-react**: npm has **0.10.0**. **0.10.1** (commit `ca1836a`) and **0.11.0** (`main`, CopilotKit 1.78+) are waiting the same way (interactive OTP).
 - A prior rename introduced URL corruption (`github.io/@pgege/…`) that was fixed in both JS repos — **watch for it recurring if you script scope changes**; the scope belongs only in package specifiers, never URL paths. (Both JS AGENTS.md files carry a guardrail: never point URLs at the old `kaboo/kaboo-workflows` monorepo path — use `gl-pgege/<repo>`.)
 
 ---
@@ -630,7 +630,7 @@ Nothing documented ships without a passing proof:
 **Release / tag flow:**
 
 - **workflows:** commitizen bump → `vX.Y.Z` tag → push triggers `publish.yml` → **PyPI Trusted Publishing** (OIDC, environment `release`; a human approves). Documented in `RELEASING.md`. Prefer `uv run just release-dry` → `uv run just release` → `git push origin main --tags`.
-- **runtime / react:** bump `version` + `CHANGELOG.md`, run `prepack` gate, then `yarn npm publish` (manual, after review; react needs interactive OTP).
+- **runtime / react:** bump `version` + `CHANGELOG.md`, run `prepack` gate, then `npm publish` (manual, after review; react needs interactive OTP).
 
 ### 16.5 Which layer does the change belong to?
 
